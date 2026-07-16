@@ -15,10 +15,24 @@
       </div>
     </nav>
 
-    <div class="hero">
+    <div class="hero" style="padding:16px 0">
       <div class="badge">🔒 პირადი გვერდი</div>
       <h1 id="title">იტვირთება...</h1>
-      <p>აქ ჩანს ყველა შეტყობინება, რომელიც ანონიმურად მოგწერეს</p>
+    </div>
+
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat">
+        <div class="num" id="statTotal">0</div>
+        <div class="label">შეტყობინება</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="statComments">0</div>
+        <div class="label">კომენტარი</div>
+      </div>
+      <div class="stat highlight">
+        <div class="num" id="statNew">0</div>
+        <div class="label">ახალი</div>
+      </div>
     </div>
 
     <div class="card" id="shareCard" style="display:none">
@@ -28,63 +42,135 @@
         <code id="publicLink"></code>
         <button class="small" onclick="copyText(document.getElementById('publicLink').textContent, this)">კოპირება</button>
       </div>
+      <a id="openPublic" href="#"><button class="ghost small">👀 ნახე როგორ ხედავენ სხვები</button></a>
     </div>
 
-    <h2 style="margin-top:28px">📥 მიღებული შეტყობინებები</h2>
+    <div class="inbox-head" id="inboxHead" style="display:none">
+      <h2>📥 მიღებული შეტყობინებები</h2>
+      <span class="muted" id="liveNote">🟢 ავტომატურად ახლდება</span>
+    </div>
     <div id="messages"></div>
   </div>
 
   <script src="/js/common.js"></script>
   <script>
     const secret = decodeURIComponent(location.pathname.split('/').pop());
+    let lastSeenId = 0;   // რა იყო ბოლო ვიზიტისას წაკითხული (ბეჯებისთვის)
+    let fingerprint = ''; // რომ ტყუილად არ გადავხატოთ სია
 
     function renderMessage(m) {
+      const isNew = m.id > lastSeenId;
       const comments = (m.comments || []).map(c =>
         `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`
       ).join('');
       return `
-        <div class="message" data-id="${m.id}">
+        <div class="message${isNew ? ' fresh' : ''}" data-id="${m.id}">
           <div class="meta">
-            <span class="who">🕵️ ანონიმი</span>
+            <span class="who">🕵️ ანონიმი ${isNew ? '<span class="badge-new">ახალი</span>' : ''}</span>
             <span class="when">${formatTime(m.created_at)}</span>
           </div>
           <div class="content">${esc(m.content)}</div>
-          ${comments ? `<div class="comments"><div class="comment-list">${comments}</div></div>` : ''}
-          <button class="small ghost delete-btn">🗑 წაშლა</button>
+          <div class="comments">
+            <div class="comment-list">${comments}</div>
+            <form class="comment-form">
+              <input type="text" maxlength="1000" placeholder="უპასუხე (ანონიმურად, ყველა ნახავს)...">
+              <button type="submit">➤</button>
+            </form>
+          </div>
+          <div class="msg-actions">
+            <button class="small ghost delete-btn">🗑 წაშლა</button>
+          </div>
         </div>`;
     }
 
-    async function load() {
+    function renderStats(messages) {
+      const commentCount = messages.reduce((n, m) => n + (m.comments ? m.comments.length : 0), 0);
+      const newCount = messages.filter((m) => m.id > lastSeenId).length;
+      document.getElementById('statTotal').textContent = messages.length;
+      document.getElementById('statComments').textContent = commentCount;
+      document.getElementById('statNew').textContent = newCount;
+      document.getElementById('statsRow').style.display = 'flex';
+    }
+
+    async function load(isFirst) {
       try {
         const data = await api(`/api/inbox/${encodeURIComponent(secret)}`);
-        // ეს მოწყობილობა იმახსოვრებს პროფილს — ამის მერე ლინკი აღარ დაგჭირდება
-        saveMyProfile(data.slug, secret);
-        renderMyPageLink();
-        document.getElementById('title').textContent = `გამარჯობა, ${data.name} 👋`;
-        document.getElementById('publicLink').textContent = `${location.origin}/u/${data.slug}`;
-        document.getElementById('shareCard').style.display = 'block';
-        const box = document.getElementById('messages');
-        box.innerHTML = data.messages.length
-          ? data.messages.map(renderMessage).join('')
-          : '<div class="empty">ჯერ არაფერი მოგწერეს — გააზიარე ლინკი ინსტაგრამზე! 📸</div>';
+
+        if (isFirst) {
+          // ეს მოწყობილობა იმახსოვრებს პროფილს — ლინკის ცალკე შენახვა საჭირო აღარ არის
+          saveMyProfile(data.slug, secret);
+          renderMyPageLink();
+          lastSeenId = Number(localStorage.getItem(`anonimo_seen_${data.slug}`) || 0);
+          document.getElementById('title').textContent = `გამარჯობა, ${data.name} 👋`;
+          document.getElementById('publicLink').textContent = `${location.origin}/u/${data.slug}`;
+          document.getElementById('openPublic').href = `/u/${data.slug}`;
+          document.getElementById('shareCard').style.display = 'block';
+          document.getElementById('inboxHead').style.display = 'flex';
+        }
+
+        // გადავხატოთ მხოლოდ მაშინ, თუ რამე შეიცვალა (რომ საწერი ველები არ წაიშალოს)
+        const fp = JSON.stringify(data.messages.map((m) => [m.id, (m.comments || []).length]));
+        if (fp !== fingerprint) {
+          fingerprint = fp;
+          renderStats(data.messages);
+          const box = document.getElementById('messages');
+          box.innerHTML = data.messages.length
+            ? data.messages.map(renderMessage).join('')
+            : '<div class="empty">ჯერ არაფერი მოგწერეს — გააზიარე ლინკი ინსტაგრამზე! 📸</div>';
+        }
+
+        // მომდევნო ვიზიტისთვის დავიმახსოვროთ, სადამდე ვნახეთ
+        const maxId = data.messages.reduce((mx, m) => Math.max(mx, m.id), 0);
+        localStorage.setItem(`anonimo_seen_${data.slug}`, String(maxId));
       } catch (e) {
-        document.getElementById('title').textContent = 'არასწორი ბმული 😔';
+        if (isFirst) document.getElementById('title').textContent = 'არასწორი ბმული 😔';
       }
     }
 
-    document.getElementById('messages').addEventListener('click', async (ev) => {
+    const box = document.getElementById('messages');
+
+    // წაშლა
+    box.addEventListener('click', async (ev) => {
       if (!ev.target.classList.contains('delete-btn')) return;
       const messageEl = ev.target.closest('.message');
       if (!confirm('ნამდვილად წავშალო ეს შეტყობინება?')) return;
       try {
         await api(`/api/inbox/${encodeURIComponent(secret)}/messages/${messageEl.dataset.id}`, { method: 'DELETE' });
         messageEl.remove();
+        fingerprint = '';
+        load(false);
       } catch (e) {
         alert(e.message);
       }
     });
 
-    load();
+    // პასუხი (ანონიმური კომენტარი) ინბოქსიდანვე
+    box.addEventListener('submit', async (ev) => {
+      if (!ev.target.classList.contains('comment-form')) return;
+      ev.preventDefault();
+      const form = ev.target;
+      const input = form.querySelector('input');
+      const content = input.value.trim();
+      if (!content) return;
+      const messageId = form.closest('.message').dataset.id;
+      try {
+        const c = await api(`/api/messages/${messageId}/comments`, {
+          method: 'POST',
+          body: JSON.stringify({ content }),
+        });
+        form.closest('.comments').querySelector('.comment-list').insertAdjacentHTML('beforeend',
+          `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`);
+        input.value = '';
+        const statEl = document.getElementById('statComments');
+        statEl.textContent = Number(statEl.textContent) + 1;
+        fingerprint = ''; // შემდეგი poll-ისას სია სერვერის მონაცემებს დაემთხვევა
+      } catch (e) {
+        alert(e.message);
+      }
+    });
+
+    load(true);
+    setInterval(() => load(false), 10000);
   </script>
 </body>
 </html>

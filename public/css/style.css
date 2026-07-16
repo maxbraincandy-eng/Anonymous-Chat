@@ -349,6 +349,44 @@ details.recovery p { margin-top: 10px; }
 }
 .owner-banner button { margin: 0; }
 
+/* ---------- inbox ---------- */
+.stats-row { display: flex; gap: 12px; margin: 14px 0; }
+.stat {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+}
+.stat .num { font-size: 26px; font-weight: 800; }
+.stat .label { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.stat.highlight { border-color: var(--accent1); }
+.stat.highlight .num { color: var(--accent1); }
+
+.inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 24px;
+}
+.inbox-head .muted { font-size: 12px; }
+
+.message.fresh { border-color: var(--accent1); }
+.badge-new {
+  background: var(--accent1);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.msg-actions { margin-top: 10px; text-align: right; }
+.msg-actions button { margin: 0; }
+
 /* ---------- misc ---------- */
 .empty { text-align: center; color: var(--muted); padding: 30px 0; }
 .badge {
