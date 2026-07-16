@@ -6,8 +6,47 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// Railway/Render/Fly-ს პროქსის უკან ვართ — req.ip რეალური კლიენტის IP იყოს
+app.set('trust proxy', 1);
+
+app.use(express.json({ limit: '16kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------- rate limiting (სპამის დაცვა) ----------
+
+const rateBuckets = new Map(); // "bucket:ip" → { count, resetAt }
+
+function rateLimit(bucket, max, windowMs) {
+  return (req, res, next) => {
+    const key = `${bucket}:${req.ip}`;
+    const now = Date.now();
+    let entry = rateBuckets.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      rateBuckets.set(key, entry);
+    }
+    entry.count++;
+    if (entry.count > max) {
+      res.set('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
+      return res.status(429).json({ error: 'ძალიან სწრაფად წერ 🙈 ცოტა მოიცადე და თავიდან სცადე' });
+    }
+    next();
+  };
+}
+
+// ვადაგასული ჩანაწერების გაწმენდა, რომ მეხსიერება არ გაიზარდოს
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateBuckets) {
+    if (now > entry.resetAt) rateBuckets.delete(key);
+  }
+}, 60 * 1000).unref();
+
+const limitProfiles = rateLimit('profiles', 5, 10 * 60 * 1000); // 5 ლინკი / 10 წთ
+const limitMessages = rateLimit('messages', 6, 60 * 1000);      // 6 წერილი / წთ
+const limitComments = rateLimit('comments', 10, 60 * 1000);     // 10 კომენტარი / წთ
+const limitChat = rateLimit('chat', 20, 60 * 1000);             // 20 ჩატ-შეტყობინება / წთ
+const limitRead = rateLimit('read', 600, 60 * 1000);            // ყველა GET ჯამში
 
 // ---------- helpers ----------
 
@@ -33,7 +72,7 @@ function makeSlug(name) {
 // ---------- profile API ----------
 
 // ლინკის შექმნა
-app.post('/api/profiles', (req, res) => {
+app.post('/api/profiles', limitProfiles, (req, res) => {
   const name = cleanText(req.body.name, MAX_NAME);
   if (!name) return res.status(400).json({ error: 'სახელი სავალდებულოა (მაქს. 40 სიმბოლო)' });
 
@@ -44,7 +83,7 @@ app.post('/api/profiles', (req, res) => {
 });
 
 // პროფილი + საჯარო შეტყობინებები კომენტარებით
-app.get('/api/profiles/:slug', (req, res) => {
+app.get('/api/profiles/:slug', limitRead, (req, res) => {
   const profile = db.prepare('SELECT id, slug, name FROM profiles WHERE slug = ?').get(req.params.slug);
   if (!profile) return res.status(404).json({ error: 'პროფილი ვერ მოიძებნა' });
 
@@ -60,7 +99,7 @@ app.get('/api/profiles/:slug', (req, res) => {
 });
 
 // ანონიმური შეტყობინების გაგზავნა
-app.post('/api/profiles/:slug/messages', (req, res) => {
+app.post('/api/profiles/:slug/messages', limitMessages, (req, res) => {
   const profile = db.prepare('SELECT id FROM profiles WHERE slug = ?').get(req.params.slug);
   if (!profile) return res.status(404).json({ error: 'პროფილი ვერ მოიძებნა' });
 
@@ -73,7 +112,7 @@ app.post('/api/profiles/:slug/messages', (req, res) => {
 });
 
 // ანონიმური კომენტარი შეტყობინებაზე
-app.post('/api/messages/:id/comments', (req, res) => {
+app.post('/api/messages/:id/comments', limitComments, (req, res) => {
   const message = db.prepare('SELECT id FROM messages WHERE id = ?').get(req.params.id);
   if (!message) return res.status(404).json({ error: 'შეტყობინება ვერ მოიძებნა' });
 
@@ -92,7 +131,7 @@ function findProfileBySecret(secret) {
   return db.prepare('SELECT id, slug, name FROM profiles WHERE secret = ?').get(secret);
 }
 
-app.get('/api/inbox/:secret', (req, res) => {
+app.get('/api/inbox/:secret', limitRead, (req, res) => {
   const profile = findProfileBySecret(req.params.secret);
   if (!profile) return res.status(404).json({ error: 'არასწორი ბმული' });
 
@@ -107,7 +146,7 @@ app.get('/api/inbox/:secret', (req, res) => {
   res.json({ slug: profile.slug, name: profile.name, messages });
 });
 
-app.delete('/api/inbox/:secret/messages/:id', (req, res) => {
+app.delete('/api/inbox/:secret/messages/:id', limitComments, (req, res) => {
   const profile = findProfileBySecret(req.params.secret);
   if (!profile) return res.status(404).json({ error: 'არასწორი ბმული' });
 
@@ -145,7 +184,7 @@ const CHAT_SELECT = `
   LEFT JOIN chat_messages r ON r.id = c.reply_to
 `;
 
-app.get('/api/chat', (req, res) => {
+app.get('/api/chat', limitRead, (req, res) => {
   touchPresence(cleanText(req.query.nick, MAX_NAME));
 
   const after = Number.parseInt(req.query.after, 10);
@@ -158,7 +197,7 @@ app.get('/api/chat', (req, res) => {
   res.json({ online: onlineCount(), messages: rows });
 });
 
-app.post('/api/chat', (req, res) => {
+app.post('/api/chat', limitChat, (req, res) => {
   const nickname = cleanText(req.body.nickname, MAX_NAME) || 'ანონიმი';
   const content = cleanText(req.body.content, MAX_CONTENT);
   if (!content) return res.status(400).json({ error: 'შეტყობინება ცარიელია ან ძალიან გრძელია' });
@@ -179,7 +218,7 @@ app.post('/api/chat', (req, res) => {
 
 // ---------- public stats (მთავარი გვერდისთვის) ----------
 
-app.get('/api/stats', (_req, res) => {
+app.get('/api/stats', limitRead, (_req, res) => {
   const profiles = db.prepare('SELECT COUNT(*) AS n FROM profiles').get().n;
   const messages =
     db.prepare('SELECT COUNT(*) AS n FROM messages').get().n +
