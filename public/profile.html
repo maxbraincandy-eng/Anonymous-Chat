@@ -15,10 +15,12 @@
       </div>
     </nav>
 
-    <div class="hero">
-      <div class="badge">🕵️ ანონიმური</div>
-      <h1 id="title">იტვირთება...</h1>
-      <p>მისწერე რაც გინდა — ვერავინ გაიგებს ვინ ხარ</p>
+    <div class="profile-head" id="profileHead">
+      <div class="profile-avatar" id="profileAvatar">?</div>
+      <div>
+        <h1 id="title">იტვირთება...</h1>
+        <p class="muted">მისწერე რაც გინდა — ვერავინ გაიგებს ვინ ხარ 🕵️</p>
+      </div>
     </div>
 
     <div class="owner-banner" id="ownerBanner" style="display:none">
@@ -26,30 +28,102 @@
       <a id="ownerInboxLink" href="#"><button class="small">📥 ჩემი შეტყობინებები</button></a>
     </div>
 
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat">
+        <div class="num" id="statMsgs">0</div>
+        <div class="label">შეტყობინება</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="statComments">0</div>
+        <div class="label">კომენტარი</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="statLast">—</div>
+        <div class="label">ბოლო წერილი</div>
+      </div>
+    </div>
+
     <div class="card">
-      <h2>✍️ დაწერე ანონიმურად</h2>
+      <div class="send-head">
+        <h2>✍️ დაწერე ანონიმურად</h2>
+        <button class="dice" id="ideaBtn" title="კითხვის იდეა">🎲 იდეა</button>
+      </div>
       <textarea id="content" maxlength="1000" placeholder="დაწერე შეკითხვა, აზრი ან რაც გულში გიდევს..."></textarea>
-      <button id="sendBtn">გაგზავნა ანონიმურად 🚀</button>
+      <div class="send-foot">
+        <span class="muted" id="charCount">0/1000</span>
+        <button id="sendBtn">გაგზავნა ანონიმურად 🚀</button>
+      </div>
       <div id="sendError" class="error"></div>
       <div id="sendOk" class="success"></div>
     </div>
 
-    <h2 style="margin-top:28px">💬 შეტყობინებები</h2>
+    <div class="inbox-head" id="feedHead" style="display:none">
+      <h2>💬 შეტყობინებები</h2>
+      <span class="muted">🟢 ავტომატურად ახლდება</span>
+    </div>
     <div id="messages"></div>
+
+    <footer>ანონიმო · powered by <b>ბატონი მაქსი</b> ⚡</footer>
   </div>
 
   <script src="/js/common.js"></script>
   <script>
     const slug = decodeURIComponent(location.pathname.split('/').pop());
+    let fingerprint = '';
+
+    // ფერი — დეტერმინისტული (იგივე ფორმულა, რაც ჩატში)
+    function hueColor(seed) {
+      return `hsl(${((seed % 360) + 360) % 360}, 75%, 65%)`;
+    }
+    function nameHue(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+      return hash;
+    }
+
+    // "ბოლო წერილი" — ფარდობითი დრო
+    function relativeTime(sqliteUtc) {
+      const diffMin = Math.floor((Date.now() - new Date(sqliteUtc.replace(' ', 'T') + 'Z')) / 60000);
+      if (diffMin < 1) return 'ახლახან';
+      if (diffMin < 60) return `${diffMin} წთ`;
+      if (diffMin < 1440) return `${Math.floor(diffMin / 60)} სთ`;
+      return `${Math.floor(diffMin / 1440)} დღე`;
+    }
+
+    // 🎲 კითხვის იდეები
+    const IDEAS = [
+      'რა აზრის ხარ ჩემზე, გულახდილად? 👀',
+      'ერთი რამ, რაც ჩემზე არ იცი?',
+      'ყველაზე სასაცილო მოგონება ჩვენზე? 😂',
+      'აღმიწერე ერთი სიტყვით',
+      'რას შემიცვლიდი, ერთი რამ რომ შეგეძლოს?',
+      'რისი თქმა გინდოდა ჩემთვის და ვერ მითხარი?',
+      'პირველად რომ მნახე, რა იფიქრე?',
+      'ვის ვგავარ ცნობილ ადამიანებში? 🎬',
+      'რა მჭირს ყველაზე მაგარი? და ყველაზე ცუდი? 😅',
+      'მირჩიე ერთი რამ, რასაც აუცილებლად უნდა ვცადო',
+    ];
+    document.getElementById('ideaBtn').addEventListener('click', () => {
+      const el = document.getElementById('content');
+      el.value = IDEAS[Math.floor(Math.random() * IDEAS.length)];
+      el.dispatchEvent(new Event('input'));
+      el.focus();
+    });
+
+    // სიმბოლოების მთვლელი
+    document.getElementById('content').addEventListener('input', (ev) => {
+      document.getElementById('charCount').textContent = `${ev.target.value.length}/1000`;
+    });
 
     function renderMessage(m) {
+      const color = hueColor(m.id * 137);
       const comments = (m.comments || []).map(c =>
         `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`
       ).join('');
       return `
         <div class="message" data-id="${m.id}">
           <div class="meta">
-            <span class="who">🕵️ ანონიმი</span>
+            <span class="who"><span class="msg-avatar" style="background:${color}">🕵️</span> ანონიმი</span>
             <span class="when">${formatTime(m.created_at)}</span>
           </div>
           <div class="content">${esc(m.content)}</div>
@@ -63,25 +137,47 @@
         </div>`;
     }
 
-    async function load() {
+    function renderStats(messages) {
+      const commentCount = messages.reduce((n, m) => n + (m.comments ? m.comments.length : 0), 0);
+      document.getElementById('statMsgs').textContent = messages.length;
+      document.getElementById('statComments').textContent = commentCount;
+      document.getElementById('statLast').textContent = messages.length ? relativeTime(messages[0].created_at) : '—';
+      document.getElementById('statsRow').style.display = 'flex';
+    }
+
+    async function load(isFirst) {
       try {
         const data = await api(`/api/profiles/${encodeURIComponent(slug)}`);
-        document.getElementById('title').textContent = `მისწერე ${data.name}-ს ანონიმურად`;
-        document.title = `ანონიმო — ${data.name}`;
 
-        // თუ ეს ჩემი გვერდია — შევთავაზოთ ინბოქსში გადასვლა
-        const me = getMyProfile();
-        if (me && me.slug === data.slug) {
-          document.getElementById('ownerBanner').style.display = 'flex';
-          document.getElementById('ownerInboxLink').href = `/inbox/${me.secret}`;
+        if (isFirst) {
+          document.getElementById('title').textContent = data.name;
+          document.title = `ანონიმო — ${data.name}`;
+          const avatar = document.getElementById('profileAvatar');
+          avatar.textContent = data.name.trim()[0].toUpperCase();
+          avatar.style.background = hueColor(nameHue(data.name + data.slug));
+          document.getElementById('feedHead').style.display = 'flex';
+
+          const me = getMyProfile();
+          if (me && me.slug === data.slug) {
+            document.getElementById('ownerBanner').style.display = 'flex';
+            document.getElementById('ownerInboxLink').href = `/inbox/${me.secret}`;
+          }
         }
-        const box = document.getElementById('messages');
-        box.innerHTML = data.messages.length
-          ? data.messages.map(renderMessage).join('')
-          : '<div class="empty">ჯერ არავის მოუწერია — იყავი პირველი! 🎯</div>';
+
+        const fp = JSON.stringify(data.messages.map((m) => [m.id, (m.comments || []).length]));
+        if (fp !== fingerprint) {
+          fingerprint = fp;
+          renderStats(data.messages);
+          const box = document.getElementById('messages');
+          box.innerHTML = data.messages.length
+            ? data.messages.map(renderMessage).join('')
+            : '<div class="empty">ჯერ არავის მოუწერია — იყავი პირველი! 🎯</div>';
+        }
       } catch (e) {
-        document.getElementById('title').textContent = 'პროფილი ვერ მოიძებნა 😔';
-        document.getElementById('messages').innerHTML = '';
+        if (isFirst) {
+          document.getElementById('title').textContent = 'პროფილი ვერ მოიძებნა 😔';
+          document.getElementById('messages').innerHTML = '';
+        }
       }
     }
 
@@ -93,16 +189,23 @@
       const content = contentEl.value.trim();
       if (!content) { errEl.textContent = 'დაწერე რამე ჯერ 🙂'; return; }
 
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = true;
       try {
         await api(`/api/profiles/${encodeURIComponent(slug)}/messages`, {
           method: 'POST',
           body: JSON.stringify({ content }),
         });
         contentEl.value = '';
-        okEl.textContent = 'გაიგზავნა ანონიმურად ✓';
-        await load();
+        contentEl.dispatchEvent(new Event('input'));
+        okEl.textContent = 'გაიგზავნა ანონიმურად ✓ ვინაობა არსად შენახულა 🕵️';
+        setTimeout(() => { okEl.textContent = ''; }, 4000);
+        fingerprint = '';
+        await load(false);
       } catch (e) {
         errEl.textContent = e.message;
+      } finally {
+        btn.disabled = false;
       }
     });
 
@@ -121,16 +224,19 @@
           method: 'POST',
           body: JSON.stringify({ content }),
         });
-        const list = form.closest('.comments').querySelector('.comment-list');
-        list.insertAdjacentHTML('beforeend',
+        form.closest('.comments').querySelector('.comment-list').insertAdjacentHTML('beforeend',
           `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`);
         input.value = '';
+        const statEl = document.getElementById('statComments');
+        statEl.textContent = Number(statEl.textContent) + 1;
+        fingerprint = '';
       } catch (e) {
         alert(e.message);
       }
     });
 
-    load();
+    load(true);
+    setInterval(() => load(false), 10000);
   </script>
 </body>
 </html>
