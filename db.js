@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS reactions (
+  target_type TEXT NOT NULL,
+  target_id   INTEGER NOT NULL,
+  emoji       TEXT NOT NULL,
+  count       INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (target_type, target_id, emoji)
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_profile ON messages(profile_id);
 CREATE INDEX IF NOT EXISTS idx_comments_message ON comments(message_id);
 `);

@@ -127,6 +127,7 @@
             <span class="when">${formatTime(m.created_at)}</span>
           </div>
           <div class="content">${esc(m.content)}</div>
+          ${renderReactionBar('message', m.id, m.reactions)}
           <div class="comments">
             <div class="comment-list">${comments}</div>
             <form class="comment-form">
@@ -164,7 +165,7 @@
           }
         }
 
-        const fp = JSON.stringify(data.messages.map((m) => [m.id, (m.comments || []).length]));
+        const fp = JSON.stringify(data.messages.map((m) => [m.id, (m.comments || []).length, m.reactions]));
         if (fp !== fingerprint) {
           fingerprint = fp;
           renderStats(data.messages);

@@ -59,3 +59,56 @@ function renderMyPageLink() {
 }
 
 document.addEventListener('DOMContentLoaded', renderMyPageLink);
+
+// ---- რეაქციები (❤️ 🔥 😂 👀) ----
+
+const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👀'];
+
+// რაზე მაქვს რეაქცია გაცემული — ინახება ბრაუზერში ("type:id:emoji")
+function getReactedSet() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('anonimo_reacted') || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function saveReactedSet(set) {
+  localStorage.setItem('anonimo_reacted', JSON.stringify([...set]));
+}
+
+function renderReactionBar(type, id, counts) {
+  counts = counts || {};
+  const reacted = getReactedSet();
+  const chips = REACTION_EMOJIS.map((emoji) => {
+    const n = counts[emoji] || 0;
+    const active = reacted.has(`${type}:${id}:${emoji}`);
+    return `<button type="button" class="react-chip${active ? ' active' : ''}" data-emoji="${emoji}">${emoji}${n ? `<span class="rc">${n}</span>` : ''}</button>`;
+  }).join('');
+  return `<div class="react-bar" data-type="${type}" data-id="${id}">${chips}</div>`;
+}
+
+// ერთი საერთო ჰენდლერი ყველა გვერდისთვის
+document.addEventListener('click', async (ev) => {
+  const chip = ev.target.closest('.react-chip');
+  if (!chip) return;
+  const bar = chip.closest('.react-bar');
+  const { type, id } = bar.dataset;
+  const emoji = chip.dataset.emoji;
+  const key = `${type}:${id}:${emoji}`;
+  const reacted = getReactedSet();
+  const action = reacted.has(key) ? 'remove' : 'add';
+
+  chip.disabled = true;
+  try {
+    const data = await api('/api/react', {
+      method: 'POST',
+      body: JSON.stringify({ type, id: Number(id), emoji, action }),
+    });
+    if (action === 'add') reacted.add(key);
+    else reacted.delete(key);
+    saveReactedSet(reacted);
+    bar.outerHTML = renderReactionBar(type, id, data.reactions);
+  } catch (e) {
+    chip.disabled = false;
+  }
+});

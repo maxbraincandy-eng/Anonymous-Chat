@@ -98,6 +98,7 @@
             ${mine ? '' : `<div class="nick" style="color:${color}">${esc(m.nickname)}</div>`}
             ${quote}
             <div class="text">${esc(m.content)}</div>
+            ${renderReactionBar('chat', m.id, m.reactions)}
             <div class="when">${formatTime(m.created_at)}</div>
           </div>
           <button class="reply-btn" title="პასუხი">↩</button>
@@ -114,6 +115,17 @@
       if (firstLoad || atBottom) windowEl.scrollTop = windowEl.scrollHeight;
     }
 
+    // სხვების რეაქციები ძველ ბაბლებზეც ცოცხლად განახლდეს
+    function updateChatReactions(map) {
+      for (const row of windowEl.querySelectorAll('.chat-row')) {
+        const id = row.dataset.id;
+        const bar = row.querySelector('.react-bar');
+        if (!bar) continue;
+        const fresh = renderReactionBar('chat', id, map[id] || {});
+        if (bar.outerHTML !== fresh) bar.outerHTML = fresh;
+      }
+    }
+
     async function poll() {
       try {
         const url = `/api/chat?nick=${encodeURIComponent(nick)}` + (lastId ? `&after=${lastId}` : '');
@@ -123,6 +135,7 @@
           windowEl.innerHTML = '<div class="empty">ჯერ სიჩუმეა... დაიწყე შენ! 🎤</div>';
         }
         appendMessages(data.messages);
+        updateChatReactions(data.reactions || {});
         firstLoad = false;
       } catch (e) {
         // ქსელის დროებითი შეცდომა — შემდეგ ჯერზე თავიდან ვცდით

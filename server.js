@@ -42,6 +42,7 @@ setInterval(() => {
   }
 }, 60 * 1000).unref();
 
+const limitReactions = rateLimit('react', 60, 60 * 1000);       // 60 რეაქცია / წთ
 const limitProfiles = rateLimit('profiles', 5, 10 * 60 * 1000); // 5 ლინკი / 10 წთ
 const limitMessages = rateLimit('messages', 6, 60 * 1000);      // 6 წერილი / წთ
 const limitComments = rateLimit('comments', 10, 60 * 1000);     // 10 კომენტარი / წთ
@@ -69,6 +70,57 @@ function makeSlug(name) {
   return `${base}-${crypto.randomBytes(3).toString('hex')}`;
 }
 
+// ---------- reactions ----------
+
+const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👀'];
+
+// items-ს (რომლებსაც .id აქვთ) ამაგრებს .reactions ობიექტს: { emoji: count }
+function attachReactions(targetType, items) {
+  if (!items.length) return;
+  const placeholders = items.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT target_id, emoji, count FROM reactions
+       WHERE target_type = ? AND count > 0 AND target_id IN (${placeholders})`
+    )
+    .all(targetType, ...items.map((i) => i.id));
+  const map = {};
+  for (const r of rows) (map[r.target_id] ??= {})[r.emoji] = r.count;
+  for (const item of items) item.reactions = map[item.id] || {};
+}
+
+app.post('/api/react', limitReactions, (req, res) => {
+  const { type, id, emoji, action } = req.body || {};
+  if (type !== 'message' && type !== 'chat') return res.status(400).json({ error: 'არასწორი ტიპი' });
+  if (!REACTION_EMOJIS.includes(emoji)) return res.status(400).json({ error: 'არასწორი ემოჯი' });
+  if (action !== 'add' && action !== 'remove') return res.status(400).json({ error: 'არასწორი მოქმედება' });
+
+  const targetId = Number.parseInt(id, 10);
+  const table = type === 'message' ? 'messages' : 'chat_messages';
+  const target =
+    Number.isInteger(targetId) && targetId > 0
+      ? db.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(targetId)
+      : null;
+  if (!target) return res.status(404).json({ error: 'შეტყობინება ვერ მოიძებნა' });
+
+  if (action === 'add') {
+    db.prepare(
+      `INSERT INTO reactions (target_type, target_id, emoji, count) VALUES (?, ?, ?, 1)
+       ON CONFLICT(target_type, target_id, emoji) DO UPDATE SET count = count + 1`
+    ).run(type, targetId, emoji);
+  } else {
+    db.prepare(
+      `UPDATE reactions SET count = MAX(count - 1, 0)
+       WHERE target_type = ? AND target_id = ? AND emoji = ?`
+    ).run(type, targetId, emoji);
+  }
+
+  const rows = db
+    .prepare('SELECT emoji, count FROM reactions WHERE target_type = ? AND target_id = ? AND count > 0')
+    .all(type, targetId);
+  res.json({ reactions: Object.fromEntries(rows.map((r) => [r.emoji, r.count])) });
+});
+
 // ---------- profile API ----------
 
 // ლინკის შექმნა
@@ -94,6 +146,7 @@ app.get('/api/profiles/:slug', limitRead, (req, res) => {
     'SELECT id, content, created_at FROM comments WHERE message_id = ? ORDER BY id ASC LIMIT 100'
   );
   for (const m of messages) m.comments = getComments.all(m.id);
+  attachReactions('message', messages);
 
   res.json({ slug: profile.slug, name: profile.name, messages });
 });
@@ -142,6 +195,7 @@ app.get('/api/inbox/:secret', limitRead, (req, res) => {
     'SELECT id, content, created_at FROM comments WHERE message_id = ? ORDER BY id ASC LIMIT 100'
   );
   for (const m of messages) m.comments = getComments.all(m.id);
+  attachReactions('message', messages);
 
   res.json({ slug: profile.slug, name: profile.name, messages });
 });
@@ -194,7 +248,15 @@ app.get('/api/chat', limitRead, (req, res) => {
   } else {
     rows = db.prepare(`${CHAT_SELECT} ORDER BY c.id DESC LIMIT 100`).all().reverse();
   }
-  res.json({ online: onlineCount(), messages: rows });
+  // რეაქციები ბოლო 100 შეტყობინებაზე — ძველ ბაბლებზეც რომ განახლდეს ცოცხლად
+  const maxChatId = db.prepare('SELECT COALESCE(MAX(id), 0) AS m FROM chat_messages').get().m;
+  const reactionRows = db
+    .prepare("SELECT target_id, emoji, count FROM reactions WHERE target_type = 'chat' AND count > 0 AND target_id > ?")
+    .all(maxChatId - 100);
+  const reactions = {};
+  for (const r of reactionRows) (reactions[r.target_id] ??= {})[r.emoji] = r.count;
+
+  res.json({ online: onlineCount(), messages: rows, reactions });
 });
 
 app.post('/api/chat', limitChat, (req, res) => {
