@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ანონიმო — ჩემი შეტყობინებები</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a class="logo" href="/">ანონი<span>მო</span></a>
+      <div class="links">
+        <a href="/chat">💬 ანონიმური ჩატი</a>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="badge">🔒 პირადი გვერდი</div>
+      <h1 id="title">იტვირთება...</h1>
+      <p>აქ ჩანს ყველა შეტყობინება, რომელიც ანონიმურად მოგწერეს</p>
+    </div>
+
+    <div class="card" id="shareCard" style="display:none">
+      <h2>🔗 შენი საჯარო ლინკი</h2>
+      <p class="muted">ეს გააზიარე ინსტაგრამის ბიოში ან სთორიში:</p>
+      <div class="link-box">
+        <code id="publicLink"></code>
+        <button class="small" onclick="copyText(document.getElementById('publicLink').textContent, this)">კოპირება</button>
+      </div>
+    </div>
+
+    <h2 style="margin-top:28px">📥 მიღებული შეტყობინებები</h2>
+    <div id="messages"></div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    const secret = decodeURIComponent(location.pathname.split('/').pop());
+
+    function renderMessage(m) {
+      const comments = (m.comments || []).map(c =>
+        `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`
+      ).join('');
+      return `
+        <div class="message" data-id="${m.id}">
+          <div class="meta">
+            <span class="who">🕵️ ანონიმი</span>
+            <span class="when">${formatTime(m.created_at)}</span>
+          </div>
+          <div class="content">${esc(m.content)}</div>
+          ${comments ? `<div class="comments"><div class="comment-list">${comments}</div></div>` : ''}
+          <button class="small ghost delete-btn">🗑 წაშლა</button>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const data = await api(`/api/inbox/${encodeURIComponent(secret)}`);
+        document.getElementById('title').textContent = `გამარჯობა, ${data.name} 👋`;
+        document.getElementById('publicLink').textContent = `${location.origin}/u/${data.slug}`;
+        document.getElementById('shareCard').style.display = 'block';
+        const box = document.getElementById('messages');
+        box.innerHTML = data.messages.length
+          ? data.messages.map(renderMessage).join('')
+          : '<div class="empty">ჯერ არაფერი მოგწერეს — გააზიარე ლინკი ინსტაგრამზე! 📸</div>';
+      } catch (e) {
+        document.getElementById('title').textContent = 'არასწორი ბმული 😔';
+      }
+    }
+
+    document.getElementById('messages').addEventListener('click', async (ev) => {
+      if (!ev.target.classList.contains('delete-btn')) return;
+      const messageEl = ev.target.closest('.message');
+      if (!confirm('ნამდვილად წავშალო ეს შეტყობინება?')) return;
+      try {
+        await api(`/api/inbox/${encodeURIComponent(secret)}/messages/${messageEl.dataset.id}`, { method: 'DELETE' });
+        messageEl.remove();
+      } catch (e) {
+        alert(e.message);
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

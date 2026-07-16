@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ანონიმო — ანონიმური შეტყობინებები</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a class="logo" href="/">ანონი<span>მო</span></a>
+      <div class="links">
+        <a href="/chat">💬 ანონიმური ჩატი</a>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="badge">100% ანონიმური</div>
+      <h1>მიიღე ანონიმური შეტყობინებები ინსტაგრამზე</h1>
+      <p>შექმენი შენი ლინკი, ჩასვი ინსტაგრამის ბიოში ან სთორიში და ნახე, რას გწერენ ანონიმურად 👀</p>
+    </div>
+
+    <div class="card">
+      <h2>🔗 შექმენი შენი ლინკი</h2>
+      <input type="text" id="name" maxlength="40" placeholder="შენი სახელი ან ინსტაგრამის ნიკი">
+      <button id="createBtn">ლინკის შექმნა</button>
+      <div id="createError" class="error"></div>
+    </div>
+
+    <div class="card" id="result" style="display:none">
+      <h2>🎉 შენი ლინკი მზადაა!</h2>
+      <p class="muted">ეს ლინკი გააზიარე ინსტაგრამზე — ამაზე მოგწერენ ანონიმურად:</p>
+      <div class="link-box">
+        <code id="publicLink"></code>
+        <button class="small" onclick="copyText(document.getElementById('publicLink').textContent, this)">კოპირება</button>
+      </div>
+      <p class="muted">ეს კი შენი <b>პირადი</b> ლინკია — შეინახე და არავის გაუზიარო. აქედან ნახავ და წაშლი შეტყობინებებს:</p>
+      <div class="link-box">
+        <code id="secretLink"></code>
+        <button class="small" onclick="copyText(document.getElementById('secretLink').textContent, this)">კოპირება</button>
+      </div>
+      <a id="openInbox" href="#"><button class="ghost">ჩემი შეტყობინებების ნახვა →</button></a>
+    </div>
+
+    <div class="features">
+      <div class="card">
+        <div class="emoji">🕵️</div>
+        <h3>სრული ანონიმურობა</h3>
+        <p>არც სახელი, არც ექაუნთი — არავინ იცის ვინ წერს</p>
+      </div>
+      <div class="card">
+        <div class="emoji">💬</div>
+        <h3>კომენტარები</h3>
+        <p>ნებისმიერ შეტყობინებას გაეცი ანონიმური კომენტარი</p>
+      </div>
+      <div class="card">
+        <div class="emoji">🔥</div>
+        <h3>ანონიმური ჩატი</h3>
+        <p>საერთო ოთახი, სადაც ყველა ანონიმურად ჩატაობს</p>
+      </div>
+      <div class="card">
+        <div class="emoji">📸</div>
+        <h3>ინსტაგრამისთვის</h3>
+        <p>ჩასვი ლინკი ბიოში ან სთორიში ერთ წამში</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    const btn = document.getElementById('createBtn');
+    btn.addEventListener('click', async () => {
+      const name = document.getElementById('name').value.trim();
+      const errEl = document.getElementById('createError');
+      errEl.textContent = '';
+      if (!name) { errEl.textContent = 'შეიყვანე სახელი'; return; }
+
+      btn.disabled = true;
+      try {
+        const { slug, secret } = await api('/api/profiles', {
+          method: 'POST',
+          body: JSON.stringify({ name }),
+        });
+        const origin = location.origin;
+        document.getElementById('publicLink').textContent = `${origin}/u/${slug}`;
+        document.getElementById('secretLink').textContent = `${origin}/inbox/${secret}`;
+        document.getElementById('openInbox').href = `/inbox/${secret}`;
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+
+        // შევინახოთ ლოკალურად, რომ ბრაუზერიდან არ დაიკარგოს
+        localStorage.setItem('anonimo_secret', secret);
+        localStorage.setItem('anonimo_slug', slug);
+      } catch (e) {
+        errEl.textContent = e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

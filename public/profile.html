@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ანონიმო — მისწერე ანონიმურად</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a class="logo" href="/">ანონი<span>მო</span></a>
+      <div class="links">
+        <a href="/chat">💬 ანონიმური ჩატი</a>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="badge">🕵️ ანონიმური</div>
+      <h1 id="title">იტვირთება...</h1>
+      <p>მისწერე რაც გინდა — ვერავინ გაიგებს ვინ ხარ</p>
+    </div>
+
+    <div class="card">
+      <h2>✍️ დაწერე ანონიმურად</h2>
+      <textarea id="content" maxlength="1000" placeholder="დაწერე შეკითხვა, აზრი ან რაც გულში გიდევს..."></textarea>
+      <button id="sendBtn">გაგზავნა ანონიმურად 🚀</button>
+      <div id="sendError" class="error"></div>
+      <div id="sendOk" class="success"></div>
+    </div>
+
+    <h2 style="margin-top:28px">💬 შეტყობინებები</h2>
+    <div id="messages"></div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    const slug = decodeURIComponent(location.pathname.split('/').pop());
+
+    function renderMessage(m) {
+      const comments = (m.comments || []).map(c =>
+        `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`
+      ).join('');
+      return `
+        <div class="message" data-id="${m.id}">
+          <div class="meta">
+            <span class="who">🕵️ ანონიმი</span>
+            <span class="when">${formatTime(m.created_at)}</span>
+          </div>
+          <div class="content">${esc(m.content)}</div>
+          <div class="comments">
+            <div class="comment-list">${comments}</div>
+            <form class="comment-form">
+              <input type="text" maxlength="1000" placeholder="ანონიმური კომენტარი...">
+              <button type="submit">➤</button>
+            </form>
+          </div>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const data = await api(`/api/profiles/${encodeURIComponent(slug)}`);
+        document.getElementById('title').textContent = `მისწერე ${data.name}-ს ანონიმურად`;
+        document.title = `ანონიმო — ${data.name}`;
+        const box = document.getElementById('messages');
+        box.innerHTML = data.messages.length
+          ? data.messages.map(renderMessage).join('')
+          : '<div class="empty">ჯერ არავის მოუწერია — იყავი პირველი! 🎯</div>';
+      } catch (e) {
+        document.getElementById('title').textContent = 'პროფილი ვერ მოიძებნა 😔';
+        document.getElementById('messages').innerHTML = '';
+      }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      const contentEl = document.getElementById('content');
+      const errEl = document.getElementById('sendError');
+      const okEl = document.getElementById('sendOk');
+      errEl.textContent = ''; okEl.textContent = '';
+      const content = contentEl.value.trim();
+      if (!content) { errEl.textContent = 'დაწერე რამე ჯერ 🙂'; return; }
+
+      try {
+        await api(`/api/profiles/${encodeURIComponent(slug)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ content }),
+        });
+        contentEl.value = '';
+        okEl.textContent = 'გაიგზავნა ანონიმურად ✓';
+        await load();
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    });
+
+    // კომენტარების გაგზავნა (event delegation)
+    document.getElementById('messages').addEventListener('submit', async (ev) => {
+      if (!ev.target.classList.contains('comment-form')) return;
+      ev.preventDefault();
+      const form = ev.target;
+      const input = form.querySelector('input');
+      const content = input.value.trim();
+      if (!content) return;
+      const messageId = form.closest('.message').dataset.id;
+
+      try {
+        const c = await api(`/api/messages/${messageId}/comments`, {
+          method: 'POST',
+          body: JSON.stringify({ content }),
+        });
+        const list = form.closest('.comments').querySelector('.comment-list');
+        list.insertAdjacentHTML('beforeend',
+          `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`);
+        input.value = '';
+      } catch (e) {
+        alert(e.message);
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>
