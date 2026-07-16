@@ -1,0 +1,19 @@
+# Render.com — Blueprint დეპლოი
+# დაფაში: New → Blueprint → აირჩიე ეს რეპო
+# შენიშვნა: მუდმივი დისკი (disk) Render-ზე ფასიან გეგმას მოითხოვს;
+# უფასო გეგმაზე ბაზა ყოველ დეპლოიზე განულდება.
+services:
+  - type: web
+    name: anonimo
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: DB_PATH
+        value: /var/data/data.sqlite
+    disk:
+      name: anonimo-data
+      mountPath: /var/data
+      sizeGB: 1

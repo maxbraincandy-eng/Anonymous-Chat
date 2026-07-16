@@ -23,6 +23,45 @@ npm start
 - `PORT` — პორტი (ნაგულისხმევი: 3000)
 - `DB_PATH` — SQLite ბაზის ფაილის გზა (ნაგულისხმევი: `./data.sqlite`)
 
+## დეპლოი (ინტერნეტზე ატვირთვა) 🚀
+
+რომ ლინკი ინსტაგრამზე გააზიარო, საიტი რეალურ დომენზე უნდა იდოს. რეპოში უკვე დევს კონფიგურაცია ოთხი ვარიანტისთვის — აირჩიე ერთი:
+
+> ⚠️ **მთავარი წესი ყველა პლატფორმაზე:** ბაზა SQLite-ფაილია, ამიტომ საჭიროა **მუდმივი დისკი (volume)** და `DB_PATH` გარემოს ცვლადი, რომელიც ამ დისკზე მიუთითებს. სხვანაირად შეტყობინებები ყოველ რესტარტზე წაიშლება.
+
+### ვარიანტი 1: Railway (ყველაზე მარტივი)
+
+1. შედი [railway.com](https://railway.com)-ზე GitHub-ით
+2. **New Project → Deploy from GitHub repo** → აირჩიე ეს რეპო (`railway.json` ავტომატურად აეწყობა)
+3. სერვისზე დაამატე **Volume** (Right click → Attach Volume), mount path: `/data`
+4. **Variables**-ში დაამატე: `DB_PATH=/data/data.sqlite`
+5. **Settings → Networking → Generate Domain** — მიიღებ საჯარო ლინკს
+
+### ვარიანტი 2: Render
+
+1. შედი [render.com](https://render.com)-ზე GitHub-ით
+2. **New → Blueprint** → აირჩიე ეს რეპო — `render.yaml` ყველაფერს ავტომატურად ააწყობს (დისკი და `DB_PATH` უკვე გაწერილია)
+3. შენიშვნა: მუდმივი დისკი Render-ზე ფასიან (Starter) გეგმას მოითხოვს
+
+### ვარიანტი 3: Fly.io
+
+```bash
+fly launch --copy-config --no-deploy
+fly volumes create anonimo_data --size 1
+fly deploy
+```
+
+კონფიგურაცია `fly.toml`-შია; volume და `DB_PATH` უკვე გაწერილია.
+
+### ვარიანტი 4: Docker (ნებისმიერი VPS)
+
+```bash
+docker build -t anonimo .
+docker run -d -p 80:3000 -v anonimo_data:/data --restart unless-stopped anonimo
+```
+
+დომენი მიაბი DNS-ით და HTTPS-თვის წინ დაუყენე Caddy ან Nginx + Let's Encrypt.
+
 ## ტექნოლოგიები
 
 - **Backend:** Node.js + Express + better-sqlite3
