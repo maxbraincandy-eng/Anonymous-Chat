@@ -92,7 +92,7 @@
           <span>${esc(truncate(m.reply_content || '', 70))}</span>
         </div>` : '';
       return `
-        <div class="chat-row${mine ? ' mine' : ''}" data-id="${m.id}">
+        <div class="chat-row${mine ? ' mine' : ''} reactable" data-id="${m.id}" data-type="chat">
           ${mine ? '' : `<div class="avatar" style="background:${color}">${esc(initial)}</div>`}
           <div class="chat-msg${mine ? ' mine' : ''}">
             ${mine ? '' : `<div class="nick" style="color:${color}">${esc(m.nickname)}</div>`}

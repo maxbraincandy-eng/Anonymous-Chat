@@ -121,7 +121,7 @@
         `<div class="comment">${esc(c.content)}<span class="when">${formatTime(c.created_at)}</span></div>`
       ).join('');
       return `
-        <div class="message" data-id="${m.id}">
+        <div class="message reactable" data-id="${m.id}" data-type="message">
           <div class="meta">
             <span class="who"><span class="msg-avatar" style="background:${color}">🕵️</span> ანონიმი</span>
             <span class="when">${formatTime(m.created_at)}</span>

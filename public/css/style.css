@@ -535,7 +535,17 @@ footer b { color: var(--text); }
 }
 
 /* ---------- reactions ---------- */
+.reactable {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.reactable input, .reactable textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
 .react-bar { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.react-bar:empty { display: none; }
 .react-chip {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--card-border);
@@ -557,6 +567,38 @@ footer b { color: var(--text); }
 .react-chip .rc { font-size: 12.5px; font-weight: 800; color: var(--text); }
 .chat-msg .react-bar { margin-top: 5px; }
 .chat-msg .react-chip { padding: 2px 8px; font-size: 12.5px; }
+
+.react-picker {
+  position: fixed;
+  display: none;
+  gap: 2px;
+  background: rgba(30, 10, 55, 0.97);
+  border: 1px solid var(--accent2);
+  border-radius: 999px;
+  padding: 6px 10px;
+  z-index: 1000;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+}
+.react-picker.open {
+  display: flex;
+  animation: pickerPop 0.16s ease-out;
+}
+@keyframes pickerPop {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.react-picker button {
+  background: transparent;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  padding: 6px 7px;
+  margin: 0;
+  border-radius: 50%;
+  transition: transform 0.1s;
+}
+.react-picker button:hover { transform: scale(1.25); }
+.react-picker button.active { background: rgba(255, 46, 147, 0.35); }
 
 /* ---------- misc ---------- */
 .empty { text-align: center; color: var(--muted); padding: 30px 0; }

@@ -76,39 +76,135 @@ function saveReactedSet(set) {
   localStorage.setItem('anonimo_reacted', JSON.stringify([...set]));
 }
 
+// ბარში მხოლოდ გაცემული რეაქციები ჩანს (ცარიელი ჩიპები აღარ იხატება)
 function renderReactionBar(type, id, counts) {
   counts = counts || {};
   const reacted = getReactedSet();
-  const chips = REACTION_EMOJIS.map((emoji) => {
-    const n = counts[emoji] || 0;
-    const active = reacted.has(`${type}:${id}:${emoji}`);
-    return `<button type="button" class="react-chip${active ? ' active' : ''}" data-emoji="${emoji}">${emoji}${n ? `<span class="rc">${n}</span>` : ''}</button>`;
-  }).join('');
+  const chips = REACTION_EMOJIS.filter((emoji) => (counts[emoji] || 0) > 0)
+    .map((emoji) => {
+      const active = reacted.has(`${type}:${id}:${emoji}`);
+      return `<button type="button" class="react-chip${active ? ' active' : ''}" data-emoji="${emoji}">${emoji}<span class="rc">${counts[emoji]}</span></button>`;
+    })
+    .join('');
   return `<div class="react-bar" data-type="${type}" data-id="${id}">${chips}</div>`;
 }
 
-// ერთი საერთო ჰენდლერი ყველა გვერდისთვის
-document.addEventListener('click', async (ev) => {
-  const chip = ev.target.closest('.react-chip');
-  if (!chip) return;
-  const bar = chip.closest('.react-bar');
-  const { type, id } = bar.dataset;
-  const emoji = chip.dataset.emoji;
+async function toggleReaction(type, id, emoji) {
   const key = `${type}:${id}:${emoji}`;
   const reacted = getReactedSet();
   const action = reacted.has(key) ? 'remove' : 'add';
+  const data = await api('/api/react', {
+    method: 'POST',
+    body: JSON.stringify({ type, id: Number(id), emoji, action }),
+  });
+  if (action === 'add') reacted.add(key);
+  else reacted.delete(key);
+  saveReactedSet(reacted);
+  const bar = document.querySelector(`.react-bar[data-type="${type}"][data-id="${id}"]`);
+  if (bar) bar.outerHTML = renderReactionBar(type, id, data.reactions);
+}
 
+// არსებულ ჩიპზე დაჭერა — სწრაფი toggle
+document.addEventListener('click', (ev) => {
+  const chip = ev.target.closest('.react-chip');
+  if (!chip) return;
+  const { type, id } = chip.closest('.react-bar').dataset;
   chip.disabled = true;
-  try {
-    const data = await api('/api/react', {
-      method: 'POST',
-      body: JSON.stringify({ type, id: Number(id), emoji, action }),
+  toggleReaction(type, id, chip.dataset.emoji).catch(() => { chip.disabled = false; });
+});
+
+// ---- რეაქციის პანელი: შეტყობინებაზე დიდხანს დაჭერით ----
+
+function getReactPicker() {
+  let picker = document.getElementById('reactPicker');
+  if (!picker) {
+    picker = document.createElement('div');
+    picker.id = 'reactPicker';
+    picker.className = 'react-picker';
+    document.body.appendChild(picker);
+    picker.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-emoji]');
+      if (!btn) return;
+      ev.stopPropagation();
+      const { type, id } = picker.dataset;
+      toggleReaction(type, id, btn.dataset.emoji).catch(() => {});
+      hideReactPicker();
     });
-    if (action === 'add') reacted.add(key);
-    else reacted.delete(key);
-    saveReactedSet(reacted);
-    bar.outerHTML = renderReactionBar(type, id, data.reactions);
-  } catch (e) {
-    chip.disabled = false;
+  }
+  return picker;
+}
+
+function showReactPicker(type, id, x, y) {
+  const picker = getReactPicker();
+  picker.dataset.type = type;
+  picker.dataset.id = id;
+  const reacted = getReactedSet();
+  picker.innerHTML = REACTION_EMOJIS.map((emoji) => {
+    const active = reacted.has(`${type}:${id}:${emoji}`);
+    return `<button type="button" class="${active ? 'active' : ''}" data-emoji="${emoji}">${emoji}</button>`;
+  }).join('');
+  picker.classList.add('open');
+  // ჯერ ვაჩენთ, რომ ზომა გავზომოთ და ეკრანიდან არ გავიდეს
+  const rect = picker.getBoundingClientRect();
+  const left = Math.min(Math.max(x - rect.width / 2, 8), window.innerWidth - rect.width - 8);
+  const top = Math.max(y - rect.height - 16, 8);
+  picker.style.left = `${left}px`;
+  picker.style.top = `${top}px`;
+  if (navigator.vibrate) navigator.vibrate(10);
+}
+
+function hideReactPicker() {
+  const picker = document.getElementById('reactPicker');
+  if (picker) picker.classList.remove('open');
+}
+
+let pressTimer = null;
+let pressStart = null;
+let suppressNextClick = false;
+const LONG_PRESS_MS = 450;
+
+document.addEventListener('pointerdown', (ev) => {
+  const target = ev.target.closest('.reactable');
+  if (!target || ev.target.closest('.react-chip, .reply-btn, button, a, input, textarea')) return;
+  pressStart = { x: ev.clientX, y: ev.clientY };
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(() => {
+    pressTimer = null;
+    suppressNextClick = true;
+    showReactPicker(target.dataset.type, target.dataset.id, pressStart.x, pressStart.y);
+  }, LONG_PRESS_MS);
+});
+
+document.addEventListener('pointermove', (ev) => {
+  if (!pressTimer || !pressStart) return;
+  // სქროლისას long-press უქმდება
+  if (Math.abs(ev.clientX - pressStart.x) > 10 || Math.abs(ev.clientY - pressStart.y) > 10) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
   }
 });
+
+for (const type of ['pointerup', 'pointercancel']) {
+  document.addEventListener(type, () => {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  });
+}
+
+// Android-ზე long-press-ის კონტექსტ-მენიუ არ ამოვარდეს
+document.addEventListener('contextmenu', (ev) => {
+  if (ev.target.closest('.reactable')) ev.preventDefault();
+});
+
+// პანელის დახურვა გარეთ დაჭერით ან სქროლით; long-press-ის მერე click არ გავიდეს
+document.addEventListener('click', (ev) => {
+  if (suppressNextClick) {
+    suppressNextClick = false;
+    ev.stopPropagation();
+    ev.preventDefault();
+    return;
+  }
+  if (!ev.target.closest('#reactPicker')) hideReactPicker();
+}, true);
+
+document.addEventListener('scroll', hideReactPicker, { capture: true, passive: true });
