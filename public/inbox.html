@@ -53,10 +53,12 @@
   </div>
 
   <script src="/js/common.js"></script>
+  <script src="/js/story.js"></script>
   <script>
     const secret = decodeURIComponent(location.pathname.split('/').pop());
     let lastSeenId = 0;   // რა იყო ბოლო ვიზიტისას წაკითხული (ბეჯებისთვის)
     let fingerprint = ''; // რომ ტყუილად არ გადავხატოთ სია
+    let mySlug = '';      // საჯარო ლინკისთვის (სთორის ბარათზე იწერება)
 
     function renderMessage(m) {
       const isNew = m.id > lastSeenId;
@@ -78,6 +80,7 @@
             </form>
           </div>
           <div class="msg-actions">
+            <button class="small story-btn">📸 სთორისთვის</button>
             <button class="small ghost delete-btn">🗑 წაშლა</button>
           </div>
         </div>`;
@@ -97,6 +100,7 @@
         const data = await api(`/api/inbox/${encodeURIComponent(secret)}`);
 
         if (isFirst) {
+          mySlug = data.slug;
           // ეს მოწყობილობა იმახსოვრებს პროფილს — ლინკის ცალკე შენახვა საჭირო აღარ არის
           saveMyProfile(data.slug, secret);
           renderMyPageLink();
@@ -128,6 +132,16 @@
     }
 
     const box = document.getElementById('messages');
+
+    // 📸 სთორის ბარათის გაზიარება
+    box.addEventListener('click', (ev) => {
+      if (!ev.target.classList.contains('story-btn')) return;
+      const messageEl = ev.target.closest('.message');
+      shareStoryImage({
+        content: messageEl.querySelector('.content').textContent,
+        link: `${location.origin}/u/${mySlug}`,
+      }, ev.target);
+    });
 
     // წაშლა
     box.addEventListener('click', async (ev) => {

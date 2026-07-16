@@ -399,7 +399,12 @@ details.recovery p { margin-top: 10px; }
   margin-left: 6px;
   vertical-align: middle;
 }
-.msg-actions { margin-top: 10px; text-align: right; }
+.msg-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .msg-actions button { margin: 0; }
 
 /* ---------- landing ---------- */
