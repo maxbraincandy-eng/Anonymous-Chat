@@ -29,22 +29,37 @@ nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0 24px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0 20px;
 }
 nav .logo {
   font-size: 22px;
   font-weight: 800;
   text-decoration: none;
   color: var(--text);
+  white-space: nowrap;
 }
 nav .logo span { color: var(--accent1); }
-nav .links a {
-  color: var(--muted);
-  text-decoration: none;
-  margin-left: 16px;
-  font-size: 15px;
+nav .links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-nav .links a:hover { color: var(--text); }
+nav .links a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 7px 13px;
+  transition: background 0.15s, border-color 0.15s;
+}
+nav .links a:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent2); }
 
 /* ---------- hero ---------- */
 .hero { text-align: center; padding: 32px 0; }
