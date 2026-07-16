@@ -8,6 +8,8 @@
 </head>
 <body>
   <div class="container">
+    <div class="powered-by">⚡ powered by <b>ბატონი მაქსი</b></div>
+
     <nav>
       <a class="logo" href="/">ანონი<span>მო</span></a>
       <div class="links">
@@ -19,6 +21,21 @@
       <div class="badge">100% ანონიმური</div>
       <h1>მიიღე ანონიმური შეტყობინებები ინსტაგრამზე</h1>
       <p>შექმენი შენი ლინკი, ჩასვი ინსტაგრამის ბიოში ან სთორიში და ნახე, რას გწერენ ანონიმურად 👀</p>
+    </div>
+
+    <div class="stats-row" id="siteStats" style="display:none">
+      <div class="stat">
+        <div class="num" id="statProfiles">0</div>
+        <div class="label">შექმნილი ლინკი</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="statMessages">0</div>
+        <div class="label">ანონიმური წერილი</div>
+      </div>
+      <div class="stat highlight">
+        <div class="num" id="statOnline">0</div>
+        <div class="label">ონლაინ ჩატში</div>
+      </div>
     </div>
 
     <div class="card" id="myCard" style="display:none">
@@ -58,6 +75,42 @@
       </details>
     </div>
 
+    <div class="section-title">🧭 როგორ მუშაობს</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <h3>შექმენი ლინკი</h3>
+          <p>ჩაწერე სახელი — ლინკი მზადაა, რეგისტრაცია არ სჭირდება</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <h3>გააზიარე ინსტაგრამზე</h3>
+          <p>ჩასვი ბიოში ან სთორიში „შემეკითხე ანონიმურად“ წარწერით</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <h3>კითხულობ ანონიმურ წერილებს</h3>
+          <p>ბრაუზერი გიმახსოვრებს — „📥 ჩემი გვერდი“ ღილაკით ყველაფერს ნახავ</p>
+        </div>
+      </div>
+    </div>
+
+    <a href="/chat" class="chat-teaser">
+      <div>
+        <h3>🔥 ანონიმური ჩატი</h3>
+        <p>საერთო ლაივ ოთახი — შემთხვევითი ნიკით, სრულად ანონიმურად</p>
+      </div>
+      <div class="teaser-right">
+        <span class="online-badge"><span class="dot"></span><span id="teaserOnline">0</span> ონლაინ</span>
+        <span class="go">შესვლა →</span>
+      </div>
+    </a>
+
     <div class="features">
       <div class="card">
         <div class="emoji">🕵️</div>
@@ -70,9 +123,9 @@
         <p>ნებისმიერ შეტყობინებას გაეცი ანონიმური კომენტარი</p>
       </div>
       <div class="card">
-        <div class="emoji">🔥</div>
-        <h3>ანონიმური ჩატი</h3>
-        <p>საერთო ოთახი, სადაც ყველა ანონიმურად ჩატაობს</p>
+        <div class="emoji">↩️</div>
+        <h3>პასუხები ჩატში</h3>
+        <p>უპასუხე კონკრეტულ შეტყობინებას ციტატით</p>
       </div>
       <div class="card">
         <div class="emoji">📸</div>
@@ -80,6 +133,8 @@
         <p>ჩასვი ლინკი ბიოში ან სთორიში ერთ წამში</p>
       </div>
     </div>
+
+    <footer>ანონიმო · powered by <b>ბატონი მაქსი</b> ⚡</footer>
   </div>
 
   <script src="/js/common.js"></script>
@@ -92,6 +147,20 @@
       document.getElementById('myCard').style.display = 'block';
       document.getElementById('createCard').style.display = 'none';
     }
+    // საიტის ცოცხალი სტატისტიკა
+    async function loadStats() {
+      try {
+        const s = await api('/api/stats');
+        document.getElementById('statProfiles').textContent = s.profiles;
+        document.getElementById('statMessages').textContent = s.messages;
+        document.getElementById('statOnline').textContent = s.online;
+        document.getElementById('teaserOnline').textContent = s.online;
+        document.getElementById('siteStats').style.display = 'flex';
+      } catch (e) { /* სტატისტიკის გარეშეც იმუშავებს */ }
+    }
+    loadStats();
+    setInterval(loadStats, 15000);
+
     document.getElementById('newLinkBtn').addEventListener('click', () => {
       document.getElementById('createCard').style.display = 'block';
       document.getElementById('name').focus();

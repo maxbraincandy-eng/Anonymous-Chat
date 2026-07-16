@@ -177,6 +177,17 @@ app.post('/api/chat', (req, res) => {
   res.status(201).json(message);
 });
 
+// ---------- public stats (მთავარი გვერდისთვის) ----------
+
+app.get('/api/stats', (_req, res) => {
+  const profiles = db.prepare('SELECT COUNT(*) AS n FROM profiles').get().n;
+  const messages =
+    db.prepare('SELECT COUNT(*) AS n FROM messages').get().n +
+    db.prepare('SELECT COUNT(*) AS n FROM comments').get().n +
+    db.prepare('SELECT COUNT(*) AS n FROM chat_messages').get().n;
+  res.json({ profiles, messages, online: onlineCount() });
+});
+
 // ---------- pages ----------
 
 app.get('/u/:slug', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));

@@ -387,6 +387,82 @@ details.recovery p { margin-top: 10px; }
 .msg-actions { margin-top: 10px; text-align: right; }
 .msg-actions button { margin: 0; }
 
+/* ---------- landing ---------- */
+.powered-by {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 10px 0 2px;
+  letter-spacing: 0.4px;
+}
+.powered-by b {
+  background: linear-gradient(90deg, var(--accent1), var(--accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.section-title { font-size: 19px; font-weight: 800; margin: 28px 0 4px; }
+
+.steps { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.step-num {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+}
+.step h3 { font-size: 15px; }
+.step p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.chat-teaser {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: var(--text);
+  background: linear-gradient(90deg, rgba(255, 46, 147, 0.18), rgba(138, 43, 226, 0.18));
+  border: 1px solid var(--accent2);
+  transition: transform 0.12s;
+}
+.chat-teaser:hover { transform: translateY(-2px); }
+.chat-teaser h3 { font-size: 17px; }
+.chat-teaser p { color: var(--muted); font-size: 13px; margin-top: 3px; }
+.teaser-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.teaser-right .go { color: var(--accent1); font-weight: 800; font-size: 14px; }
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 34px 0 6px;
+}
+footer b { color: var(--text); }
+
 /* ---------- misc ---------- */
 .empty { text-align: center; color: var(--muted); padding: 30px 0; }
 .badge {
