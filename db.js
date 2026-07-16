@@ -36,11 +36,18 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   nickname   TEXT NOT NULL,
   content    TEXT NOT NULL,
+  reply_to   INTEGER REFERENCES chat_messages(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_profile ON messages(profile_id);
 CREATE INDEX IF NOT EXISTS idx_comments_message ON comments(message_id);
 `);
+
+// მიგრაცია ძველი ბაზებისთვის, სადაც chat_messages-ს reply_to სვეტი ჯერ არ აქვს
+const chatColumns = db.prepare('PRAGMA table_info(chat_messages)').all().map((c) => c.name);
+if (!chatColumns.includes('reply_to')) {
+  db.exec('ALTER TABLE chat_messages ADD COLUMN reply_to INTEGER REFERENCES chat_messages(id)');
+}
 
 module.exports = db;

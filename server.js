@@ -120,20 +120,42 @@ app.delete('/api/inbox/:secret/messages/:id', (req, res) => {
 
 // ---------- anonymous chat API ----------
 
+// ონლაინ ვიზიტორები (მეხსიერებაში): ნიკი → ბოლო აქტივობის დრო
+const chatPresence = new Map();
+const PRESENCE_TTL = 45 * 1000;
+
+function touchPresence(nick) {
+  if (nick) chatPresence.set(nick, Date.now());
+}
+
+function onlineCount() {
+  const cutoff = Date.now() - PRESENCE_TTL;
+  let count = 0;
+  for (const [nick, seenAt] of chatPresence) {
+    if (seenAt < cutoff) chatPresence.delete(nick);
+    else count++;
+  }
+  return count;
+}
+
+const CHAT_SELECT = `
+  SELECT c.id, c.nickname, c.content, c.created_at, c.reply_to,
+         r.nickname AS reply_nickname, r.content AS reply_content
+  FROM chat_messages c
+  LEFT JOIN chat_messages r ON r.id = c.reply_to
+`;
+
 app.get('/api/chat', (req, res) => {
+  touchPresence(cleanText(req.query.nick, MAX_NAME));
+
   const after = Number.parseInt(req.query.after, 10);
   let rows;
   if (Number.isInteger(after) && after > 0) {
-    rows = db
-      .prepare('SELECT id, nickname, content, created_at FROM chat_messages WHERE id > ? ORDER BY id ASC LIMIT 200')
-      .all(after);
+    rows = db.prepare(`${CHAT_SELECT} WHERE c.id > ? ORDER BY c.id ASC LIMIT 200`).all(after);
   } else {
-    rows = db
-      .prepare('SELECT id, nickname, content, created_at FROM chat_messages ORDER BY id DESC LIMIT 100')
-      .all()
-      .reverse();
+    rows = db.prepare(`${CHAT_SELECT} ORDER BY c.id DESC LIMIT 100`).all().reverse();
   }
-  res.json(rows);
+  res.json({ online: onlineCount(), messages: rows });
 });
 
 app.post('/api/chat', (req, res) => {
@@ -141,10 +163,17 @@ app.post('/api/chat', (req, res) => {
   const content = cleanText(req.body.content, MAX_CONTENT);
   if (!content) return res.status(400).json({ error: 'შეტყობინება ცარიელია ან ძალიან გრძელია' });
 
-  const info = db.prepare('INSERT INTO chat_messages (nickname, content) VALUES (?, ?)').run(nickname, content);
-  const message = db
-    .prepare('SELECT id, nickname, content, created_at FROM chat_messages WHERE id = ?')
-    .get(info.lastInsertRowid);
+  let replyTo = null;
+  if (req.body.reply_to != null) {
+    const target = db.prepare('SELECT id FROM chat_messages WHERE id = ?').get(req.body.reply_to);
+    if (target) replyTo = target.id;
+  }
+
+  touchPresence(nickname);
+  const info = db
+    .prepare('INSERT INTO chat_messages (nickname, content, reply_to) VALUES (?, ?, ?)')
+    .run(nickname, content, replyTo);
+  const message = db.prepare(`${CHAT_SELECT} WHERE c.id = ?`).get(info.lastInsertRowid);
   res.status(201).json(message);
 });
 

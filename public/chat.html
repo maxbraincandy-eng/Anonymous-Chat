@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container chat-layout">
     <nav>
       <a class="logo" href="/">ანონი<span>მო</span></a>
       <div class="links">
@@ -15,14 +15,26 @@
       </div>
     </nav>
 
-    <div class="hero" style="padding:16px 0">
-      <div class="badge">🔥 ლაივ ოთახი</div>
-      <h1 style="font-size:26px">ანონიმური ჩატი</h1>
-      <p>აქ ყველა ანონიმურად ჩატაობს — შენ ხარ <b id="myNick" style="color:#ff2e93"></b></p>
+    <div class="chat-header">
+      <div>
+        <h1>💬 ანონიმური ჩატი</h1>
+        <div class="chat-me">შენ ხარ <b id="myNick"></b>
+          <button class="dice" id="diceBtn" title="ნიკის შეცვლა">🎲</button>
+        </div>
+      </div>
+      <div class="online-badge"><span class="dot"></span><span id="onlineCount">1</span> ონლაინ</div>
     </div>
 
     <div class="chat-window" id="chatWindow">
       <div class="empty">იტვირთება...</div>
+    </div>
+
+    <div class="reply-bar" id="replyBar" style="display:none">
+      <div class="reply-info">
+        <span class="reply-label">პასუხი: <b id="replyNick"></b></span>
+        <span class="reply-preview" id="replyPreview"></span>
+      </div>
+      <button class="cancel" id="cancelReply" title="გაუქმება">✕</button>
     </div>
 
     <form class="chat-form" id="chatForm">
@@ -33,34 +45,69 @@
 
   <script src="/js/common.js"></script>
   <script>
-    // ანონიმური ნიკის გენერაცია — ინახება ბრაუზერში, რომ ერთ სესიაში ერთი ნიკი ჰქონდეს
+    // ---- ანონიმური ნიკი ----
     const ADJ = ['იდუმალი', 'უჩინარი', 'მალული', 'ღამის', 'ჩუმი', 'ველური', 'ცელქი', 'მხიარული', 'პირქუში', 'სწრაფი'];
     const ANIMAL = ['მელა', 'ბუ', 'პანტერა', 'მგელი', 'კატა', 'ყვავი', 'დელფინი', 'ვეფხვი', 'ზღარბი', 'შევარდენი'];
 
-    let nick = localStorage.getItem('anonimo_nick');
-    if (!nick) {
-      nick = `${ADJ[Math.floor(Math.random() * ADJ.length)]} ${ANIMAL[Math.floor(Math.random() * ANIMAL.length)]} #${Math.floor(100 + Math.random() * 900)}`;
-      localStorage.setItem('anonimo_nick', nick);
+    function randomNick() {
+      return `${ADJ[Math.floor(Math.random() * ADJ.length)]} ${ANIMAL[Math.floor(Math.random() * ANIMAL.length)]} #${Math.floor(100 + Math.random() * 900)}`;
     }
+
+    let nick = localStorage.getItem('anonimo_nick') || randomNick();
+    localStorage.setItem('anonimo_nick', nick);
     document.getElementById('myNick').textContent = nick;
 
+    document.getElementById('diceBtn').addEventListener('click', () => {
+      nick = randomNick();
+      localStorage.setItem('anonimo_nick', nick);
+      document.getElementById('myNick').textContent = nick;
+    });
+
+    // ნიკის ფერი — დეტერმინისტული, ყველა ერთსა და იმავე ფერს ხედავს
+    function nickColor(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+      return `hsl(${((hash % 360) + 360) % 360}, 75%, 65%)`;
+    }
+
+    // ---- ჩატი ----
     const windowEl = document.getElementById('chatWindow');
+    const msgCache = new Map(); // id → message (პასუხისთვის)
     let lastId = 0;
     let firstLoad = true;
+    let replyTo = null;
+
+    function truncate(text, len) {
+      return text.length > len ? text.slice(0, len) + '…' : text;
+    }
 
     function renderChatMsg(m) {
+      msgCache.set(m.id, m);
       const mine = m.nickname === nick;
+      const color = nickColor(m.nickname);
+      const initial = m.nickname.trim()[0].toUpperCase();
+      const quote = m.reply_to && m.reply_nickname ? `
+        <div class="quote">
+          <b style="color:${nickColor(m.reply_nickname)}">${esc(m.reply_nickname)}</b>
+          <span>${esc(truncate(m.reply_content || '', 70))}</span>
+        </div>` : '';
       return `
-        <div class="chat-msg${mine ? ' mine' : ''}">
-          <div class="nick">${esc(m.nickname)}</div>
-          <div class="text">${esc(m.content)}</div>
-          <div class="when">${formatTime(m.created_at)}</div>
+        <div class="chat-row${mine ? ' mine' : ''}" data-id="${m.id}">
+          ${mine ? '' : `<div class="avatar" style="background:${color}">${esc(initial)}</div>`}
+          <div class="chat-msg${mine ? ' mine' : ''}">
+            ${mine ? '' : `<div class="nick" style="color:${color}">${esc(m.nickname)}</div>`}
+            ${quote}
+            <div class="text">${esc(m.content)}</div>
+            <div class="when">${formatTime(m.created_at)}</div>
+          </div>
+          <button class="reply-btn" title="პასუხი">↩</button>
         </div>`;
     }
 
     function appendMessages(rows) {
       if (!rows.length) return;
-      if (firstLoad) { windowEl.innerHTML = ''; }
+      const emptyEl = windowEl.querySelector('.empty');
+      if (emptyEl) emptyEl.remove();
       const atBottom = windowEl.scrollHeight - windowEl.scrollTop - windowEl.clientHeight < 60;
       windowEl.insertAdjacentHTML('beforeend', rows.map(renderChatMsg).join(''));
       lastId = rows[rows.length - 1].id;
@@ -69,28 +116,54 @@
 
     async function poll() {
       try {
-        const rows = await api(lastId ? `/api/chat?after=${lastId}` : '/api/chat');
-        if (firstLoad && !rows.length) {
+        const url = `/api/chat?nick=${encodeURIComponent(nick)}` + (lastId ? `&after=${lastId}` : '');
+        const data = await api(url);
+        document.getElementById('onlineCount').textContent = data.online;
+        if (firstLoad && !data.messages.length) {
           windowEl.innerHTML = '<div class="empty">ჯერ სიჩუმეა... დაიწყე შენ! 🎤</div>';
         }
-        appendMessages(rows);
+        appendMessages(data.messages);
         firstLoad = false;
       } catch (e) {
         // ქსელის დროებითი შეცდომა — შემდეგ ჯერზე თავიდან ვცდით
       }
     }
 
+    // ---- პასუხის (reply) რეჟიმი ----
+    function setReply(id) {
+      const m = msgCache.get(id);
+      if (!m) return;
+      replyTo = id;
+      document.getElementById('replyNick').textContent = m.nickname;
+      document.getElementById('replyPreview').textContent = truncate(m.content, 60);
+      document.getElementById('replyBar').style.display = 'flex';
+      document.getElementById('chatInput').focus();
+    }
+
+    function clearReply() {
+      replyTo = null;
+      document.getElementById('replyBar').style.display = 'none';
+    }
+
+    windowEl.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.reply-btn');
+      if (!btn) return;
+      setReply(Number(btn.closest('.chat-row').dataset.id));
+    });
+    document.getElementById('cancelReply').addEventListener('click', clearReply);
+
+    // ---- გაგზავნა ----
     document.getElementById('chatForm').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const input = document.getElementById('chatInput');
       const content = input.value.trim();
       if (!content) return;
       input.value = '';
+      const body = { content, nickname: nick };
+      if (replyTo) body.reply_to = replyTo;
+      clearReply();
       try {
-        await api('/api/chat', {
-          method: 'POST',
-          body: JSON.stringify({ content, nickname: nick }),
-        });
+        await api('/api/chat', { method: 'POST', body: JSON.stringify(body) });
         await poll();
         windowEl.scrollTop = windowEl.scrollHeight;
       } catch (e) {
