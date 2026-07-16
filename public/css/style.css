@@ -191,6 +191,39 @@ button.ghost {
 .chat-form input { flex: 1; }
 .chat-form button { margin: 0; }
 
+/* ---------- recovery details ---------- */
+details.recovery {
+  margin-top: 16px;
+  border-top: 1px solid var(--card-border);
+  padding-top: 12px;
+}
+details.recovery summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  list-style: none;
+}
+details.recovery summary::-webkit-details-marker { display: none; }
+details.recovery summary::after { content: ' ▾'; }
+details.recovery[open] summary::after { content: ' ▴'; }
+details.recovery p { margin-top: 10px; }
+
+/* ---------- owner banner ---------- */
+.owner-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: linear-gradient(90deg, rgba(255, 46, 147, 0.18), rgba(138, 43, 226, 0.18));
+  border: 1px solid var(--accent2);
+  border-radius: 14px;
+  padding: 10px 16px;
+  margin: 14px 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.owner-banner button { margin: 0; }
+
 /* ---------- misc ---------- */
 .empty { text-align: center; color: var(--muted); padding: 30px 0; }
 .badge {

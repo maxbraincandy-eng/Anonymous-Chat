@@ -21,6 +21,11 @@
       <p>მისწერე რაც გინდა — ვერავინ გაიგებს ვინ ხარ</p>
     </div>
 
+    <div class="owner-banner" id="ownerBanner" style="display:none">
+      <span>ეს შენი გვერდია 👑</span>
+      <a id="ownerInboxLink" href="#"><button class="small">📥 ჩემი შეტყობინებები</button></a>
+    </div>
+
     <div class="card">
       <h2>✍️ დაწერე ანონიმურად</h2>
       <textarea id="content" maxlength="1000" placeholder="დაწერე შეკითხვა, აზრი ან რაც გულში გიდევს..."></textarea>
@@ -63,6 +68,13 @@
         const data = await api(`/api/profiles/${encodeURIComponent(slug)}`);
         document.getElementById('title').textContent = `მისწერე ${data.name}-ს ანონიმურად`;
         document.title = `ანონიმო — ${data.name}`;
+
+        // თუ ეს ჩემი გვერდია — შევთავაზოთ ინბოქსში გადასვლა
+        const me = getMyProfile();
+        if (me && me.slug === data.slug) {
+          document.getElementById('ownerBanner').style.display = 'flex';
+          document.getElementById('ownerInboxLink').href = `/inbox/${me.secret}`;
+        }
         const box = document.getElementById('messages');
         box.innerHTML = data.messages.length
           ? data.messages.map(renderMessage).join('')

@@ -21,7 +21,18 @@
       <p>შექმენი შენი ლინკი, ჩასვი ინსტაგრამის ბიოში ან სთორიში და ნახე, რას გწერენ ანონიმურად 👀</p>
     </div>
 
-    <div class="card">
+    <div class="card" id="myCard" style="display:none">
+      <h2>👋 შენი ლინკი უკვე გაქვს</h2>
+      <p class="muted">ეს გააზიარე ინსტაგრამზე:</p>
+      <div class="link-box">
+        <code id="myPublicLink"></code>
+        <button class="small" onclick="copyText(document.getElementById('myPublicLink').textContent, this)">კოპირება</button>
+      </div>
+      <a id="myInbox" href="#"><button>📥 ჩემი შეტყობინებები</button></a>
+      <button class="ghost" id="newLinkBtn">სხვა ლინკის შექმნა</button>
+    </div>
+
+    <div class="card" id="createCard">
       <h2>🔗 შექმენი შენი ლინკი</h2>
       <input type="text" id="name" maxlength="40" placeholder="შენი სახელი ან ინსტაგრამის ნიკი">
       <button id="createBtn">ლინკის შექმნა</button>
@@ -30,17 +41,21 @@
 
     <div class="card" id="result" style="display:none">
       <h2>🎉 შენი ლინკი მზადაა!</h2>
-      <p class="muted">ეს ლინკი გააზიარე ინსტაგრამზე — ამაზე მოგწერენ ანონიმურად:</p>
+      <p class="muted">ეს ლინკი გააზიარე ინსტაგრამის ბიოში ან სთორიში — ამაზე მოგწერენ ანონიმურად:</p>
       <div class="link-box">
         <code id="publicLink"></code>
         <button class="small" onclick="copyText(document.getElementById('publicLink').textContent, this)">კოპირება</button>
       </div>
-      <p class="muted">ეს კი შენი <b>პირადი</b> ლინკია — შეინახე და არავის გაუზიარო. აქედან ნახავ და წაშლი შეტყობინებებს:</p>
-      <div class="link-box">
-        <code id="secretLink"></code>
-        <button class="small" onclick="copyText(document.getElementById('secretLink').textContent, this)">კოპირება</button>
-      </div>
-      <a id="openInbox" href="#"><button class="ghost">ჩემი შეტყობინებების ნახვა →</button></a>
+      <p class="muted">ბრაუზერმა უკვე დაგიმახსოვრა ✓ — შეტყობინებებს ნებისმიერ დროს ნახავ ზემოთ „📥 ჩემი გვერდი“ ღილაკით.</p>
+      <a id="openInbox" href="#"><button>📥 ჩემი შეტყობინებების ნახვა</button></a>
+      <details class="recovery">
+        <summary>🔑 სხვა მოწყობილობიდან შესვლა</summary>
+        <p class="muted">თუ სხვა ტელეფონიდან ან კომპიუტერიდან გინდა შეტყობინებების ნახვა, გახსენი იქ ეს პირადი ლინკი (არავის გაუზიარო):</p>
+        <div class="link-box">
+          <code id="secretLink"></code>
+          <button class="small" onclick="copyText(document.getElementById('secretLink').textContent, this)">კოპირება</button>
+        </div>
+      </details>
     </div>
 
     <div class="features">
@@ -69,6 +84,19 @@
 
   <script src="/js/common.js"></script>
   <script>
+    // თუ ამ ბრაუზერს უკვე აქვს ლინკი — პირდაპირ ვაჩვენოთ, ფორმის ნაცვლად
+    const me = getMyProfile();
+    if (me) {
+      document.getElementById('myPublicLink').textContent = `${location.origin}/u/${me.slug}`;
+      document.getElementById('myInbox').href = `/inbox/${me.secret}`;
+      document.getElementById('myCard').style.display = 'block';
+      document.getElementById('createCard').style.display = 'none';
+    }
+    document.getElementById('newLinkBtn').addEventListener('click', () => {
+      document.getElementById('createCard').style.display = 'block';
+      document.getElementById('name').focus();
+    });
+
     const btn = document.getElementById('createBtn');
     btn.addEventListener('click', async () => {
       const name = document.getElementById('name').value.trim();
@@ -87,11 +115,13 @@
         document.getElementById('secretLink').textContent = `${origin}/inbox/${secret}`;
         document.getElementById('openInbox').href = `/inbox/${secret}`;
         document.getElementById('result').style.display = 'block';
+        document.getElementById('myCard').style.display = 'none';
+        document.getElementById('createCard').style.display = 'none';
         document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
 
-        // შევინახოთ ლოკალურად, რომ ბრაუზერიდან არ დაიკარგოს
-        localStorage.setItem('anonimo_secret', secret);
-        localStorage.setItem('anonimo_slug', slug);
+        // ბრაუზერი იმახსოვრებს პროფილს — ლინკის ცალკე შენახვა საჭირო აღარ არის
+        saveMyProfile(slug, secret);
+        renderMyPageLink();
       } catch (e) {
         errEl.textContent = e.message;
       } finally {

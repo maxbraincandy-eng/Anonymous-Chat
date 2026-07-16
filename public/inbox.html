@@ -57,6 +57,9 @@
     async function load() {
       try {
         const data = await api(`/api/inbox/${encodeURIComponent(secret)}`);
+        // ეს მოწყობილობა იმახსოვრებს პროფილს — ამის მერე ლინკი აღარ დაგჭირდება
+        saveMyProfile(data.slug, secret);
+        renderMyPageLink();
         document.getElementById('title').textContent = `გამარჯობა, ${data.name} 👋`;
         document.getElementById('publicLink').textContent = `${location.origin}/u/${data.slug}`;
         document.getElementById('shareCard').style.display = 'block';

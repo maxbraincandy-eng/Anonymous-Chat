@@ -31,3 +31,31 @@ function copyText(text, btn) {
     setTimeout(() => { btn.textContent = old; }, 1500);
   });
 }
+
+// ---- ჩემი პროფილი (ინახება ბრაუზერში, რომ ლინკის ცალკე შენახვა არ იყოს საჭირო) ----
+
+function saveMyProfile(slug, secret) {
+  localStorage.setItem('anonimo_slug', slug);
+  localStorage.setItem('anonimo_secret', secret);
+}
+
+function getMyProfile() {
+  const slug = localStorage.getItem('anonimo_slug');
+  const secret = localStorage.getItem('anonimo_secret');
+  return slug && secret ? { slug, secret } : null;
+}
+
+// ნავიგაციაში „ჩემი გვერდი“ ღილაკის ჩამატება, თუ ამ ბრაუზერს პროფილი აქვს
+function renderMyPageLink() {
+  const me = getMyProfile();
+  if (!me) return;
+  const links = document.querySelector('nav .links');
+  if (!links || links.querySelector('.my-page-link')) return;
+  const a = document.createElement('a');
+  a.className = 'my-page-link';
+  a.href = `/inbox/${me.secret}`;
+  a.textContent = '📥 ჩემი გვერდი';
+  links.prepend(a);
+}
+
+document.addEventListener('DOMContentLoaded', renderMyPageLink);
